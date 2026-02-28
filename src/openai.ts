@@ -75,8 +75,7 @@ export async function generateImage(
         {
           type: 'image_generation',
           quality: options.quality ?? 'medium',
-          size: options.size ?? '1024x1024',
-          format: options.format ?? 'png'
+          size: options.size ?? '1024x1024'
         }
       ],
       tool_choice: { type: 'image_generation' }
