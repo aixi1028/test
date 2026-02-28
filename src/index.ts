@@ -5,8 +5,12 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { generateOpenaiImage, generateOpenaiText } from './providers/openai.js';
 import { generateAnthropicText } from './providers/anthropic.js';
-import { generateGoogleImage, generateGeminiText } from './providers/google.js';
+import { generateGeminiText, generateGoogleImage } from './providers/google.js';
 import { generateXaiImage, generateXaiText } from './providers/xai.js';
+import { generateDeepseekText } from './providers/deepseek.js';
+import { generateQwenImage, generateQwenText } from './providers/qwen.js';
+import { generateMoonshotText } from './providers/moonshot.js';
+import { generateBigModelImage, generateBigModelText } from './providers/bigmodel.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3030);
@@ -17,7 +21,15 @@ const publicDir = path.resolve(currentDir, '..', 'public');
 const imageDir = path.join(publicDir, 'generated');
 const imageMetaDir = path.resolve(currentDir, '..', 'data', 'images');
 
-type ProviderId = 'openai' | 'anthropic' | 'google' | 'xai';
+type ProviderId =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
+  | 'xai'
+  | 'deepseek'
+  | 'qwen'
+  | 'moonshot'
+  | 'bigmodel';
 type ModelGroup = {
   text: string[];
   image: string[];
@@ -27,25 +39,18 @@ const providerKeyEnv: Record<ProviderId, string> = {
   openai: 'OPENAI_API_KEY',
   anthropic: 'ANTHROPIC_API_KEY',
   google: 'GEMINI_API_KEY',
-  xai: 'XAI_API_KEY'
+  xai: 'XAI_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY',
+  qwen: 'QWEN_API_KEY',
+  moonshot: 'MOONSHOT_API_KEY',
+  bigmodel: 'BIGMODEL_API_KEY'
 };
 
 const providers: Record<ProviderId, { label: string; models: ModelGroup; enabled: boolean }> = {
   openai: {
     label: 'OpenAI',
     models: {
-      text: [
-        'gpt-5.1',
-        'gpt-5-mini',
-        'gpt-5-nano',
-        'gpt-5',
-        'gpt-4.1',
-        'gpt-4.1-mini',
-        'gpt-4.1-nano',
-        'gpt-4o',
-        'gpt-4o-mini',
-        'o3'
-      ],
+      text: ['gpt-4.1', 'gpt-4o', 'gpt-4o-mini'],
       image: ['gpt-image-1.5', 'gpt-image-1', 'gpt-image-1-mini', 'dall-e-3', 'dall-e-2']
     },
     enabled: true
@@ -82,9 +87,39 @@ const providers: Record<ProviderId, { label: string; models: ModelGroup; enabled
   xai: {
     label: 'xAI',
     models: {
-      text: ['grok-4-1-fast-reasoning', 'grok-code-fast-1'],
+      text: [
+        'grok-4-1-fast-reasoning',
+        'grok-4-1-fast-non-reasoning',
+        'grok-4-fast-reasoning',
+        'grok-4-fast-non-reasoning',
+        'grok-4',
+        'grok-code-fast-1'
+      ],
       image: ['grok-imagine-image']
     },
+    enabled: true
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    models: { text: ['deepseek-chat', 'deepseek-reasoner'], image: [] },
+    enabled: true
+  },
+  qwen: {
+    label: 'Qwen',
+    models: {
+      text: ['qwen-max', 'qwen-plus', 'qwen-flash', 'qwen-turbo'],
+      image: ['qwen-image-max', 'qwen-image-plus', 'qwen-image']
+    },
+    enabled: true
+  },
+  moonshot: {
+    label: 'Moonshot (Kimi)',
+    models: { text: ['kimi-k2-thinking', 'kimi-k2-thinking-turbo'], image: [] },
+    enabled: true
+  },
+  bigmodel: {
+    label: 'BigModel (智谱)',
+    models: { text: ['glm-4'], image: ['glm-image', 'cogview-3', 'cogview-3-flash'] },
     enabled: true
   }
 };
@@ -154,6 +189,14 @@ app.post('/api/chat', async (req, res) => {
       reply = await generateGeminiText(message, modelToUse);
     } else if (providerId === 'xai') {
       reply = await generateXaiText(message, modelToUse);
+    } else if (providerId === 'deepseek') {
+      reply = await generateDeepseekText(message, modelToUse);
+    } else if (providerId === 'qwen') {
+      reply = await generateQwenText(message, modelToUse);
+    } else if (providerId === 'moonshot') {
+      reply = await generateMoonshotText(message, modelToUse);
+    } else if (providerId === 'bigmodel') {
+      reply = await generateBigModelText(message, modelToUse);
     } else {
       res.status(400).json({ error: 'Provider not implemented yet.', requestId });
       return;
@@ -219,6 +262,10 @@ app.post('/api/image', async (req, res) => {
         imageBase64 = await generateGoogleImage(prompt, modelToUse);
       } else if (providerId === 'xai') {
         imageBase64 = await generateXaiImage(prompt, modelToUse);
+      } else if (providerId === 'qwen') {
+        imageBase64 = await generateQwenImage(prompt, modelToUse);
+      } else if (providerId === 'bigmodel') {
+        imageBase64 = await generateBigModelImage(prompt, modelToUse);
       } else {
         res.status(400).json({ error: 'Provider not implemented yet.', requestId });
         return;
@@ -237,8 +284,13 @@ app.post('/api/image', async (req, res) => {
       modelUsed =
         providerId === 'google'
           ? 'gemini-2.5-flash-image'
-          : providerId === 'xai'
+          :
+        providerId === 'xai'
           ? 'grok-imagine-image'
+          : providerId === 'qwen'
+          ? 'qwen-image-max'
+          : providerId === 'bigmodel'
+          ? 'glm-image'
           : 'gpt-image-1';
       console.warn('[image] fallback model', {
         timestamp,
@@ -250,6 +302,10 @@ app.post('/api/image', async (req, res) => {
         imageBase64 = await generateGoogleImage(prompt, modelUsed);
       } else if (providerId === 'xai') {
         imageBase64 = await generateXaiImage(prompt, modelUsed);
+      } else if (providerId === 'qwen') {
+        imageBase64 = await generateQwenImage(prompt, modelUsed);
+      } else if (providerId === 'bigmodel') {
+        imageBase64 = await generateBigModelImage(prompt, modelUsed);
       } else {
         imageBase64 = await generateOpenaiImage(prompt, { model: modelUsed });
       }
