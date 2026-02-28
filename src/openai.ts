@@ -22,7 +22,7 @@ export async function generateText(prompt: string, options: GenerateOptions = {}
 
   try {
     const response = await client.responses.create({
-      model: options.model ?? 'gpt-5-mini',
+      model: options.model ?? 'gpt-5.2',
       input: prompt,
       max_output_tokens: options.maxOutputTokens ?? 256
     });
