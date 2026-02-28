@@ -72,7 +72,7 @@ export async function generateImage(
       prompt,
       quality: options.quality ?? 'medium',
       size: options.size ?? '1024x1024',
-      response_format: 'b64_json'
+      output_format: 'png'
     });
 
     const imageData = response.data?.[0]?.b64_json;
