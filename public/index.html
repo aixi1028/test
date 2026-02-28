@@ -118,6 +118,7 @@
       </form>
       <div class="output" id="image-output">The image will appear here.</div>
       <div class="status" id="image-status"></div>
+      <div class="status" id="image-model-used"></div>
       <div class="status" id="image-request-id"></div>
     </main>
 
@@ -132,6 +133,7 @@
       const imageModel = document.getElementById('image-model');
       const imageOutput = document.getElementById('image-output');
       const imageStatus = document.getElementById('image-status');
+      const imageModelUsed = document.getElementById('image-model-used');
       const imageRequestIdEl = document.getElementById('image-request-id');
 
       form.addEventListener('submit', async (event) => {
@@ -183,6 +185,7 @@
         }
 
         imageStatus.textContent = 'Sending...';
+        imageModelUsed.textContent = '';
         imageRequestIdEl.textContent = '';
         imageOutput.textContent = 'Waiting for image...';
 
@@ -215,6 +218,9 @@
           imageOutput.innerHTML = '';
           imageOutput.appendChild(img);
           imageStatus.textContent = 'Done.';
+          if (data.modelUsed) {
+            imageModelUsed.textContent = `model: ${data.modelUsed}`;
+          }
           if (data.requestId) {
             imageRequestIdEl.textContent = `request_id: ${data.requestId}`;
           }

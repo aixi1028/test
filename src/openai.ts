@@ -12,7 +12,6 @@ type GenerateImageOptions = {
   model?: string;
   quality?: 'low' | 'medium' | 'high';
   size?: '1024x1024' | '1024x1536' | '1536x1024';
-  format?: 'png' | 'jpeg' | 'webp';
   timeoutMs?: number;
   maxRetries?: number;
 };
@@ -68,28 +67,20 @@ export async function generateImage(
   });
 
   try {
-    const response = await client.responses.create({
-      model: options.model ?? 'gpt-5',
-      input: prompt,
-      tools: [
-        {
-          type: 'image_generation',
-          quality: options.quality ?? 'medium',
-          size: options.size ?? '1024x1024'
-        }
-      ],
-      tool_choice: { type: 'image_generation' }
+    const response = await client.images.generate({
+      model: options.model ?? 'gpt-image-1',
+      prompt,
+      quality: options.quality ?? 'medium',
+      size: options.size ?? '1024x1024',
+      response_format: 'b64_json'
     });
 
-    const imageOutput = (response.output ?? []).find(
-      (item) => item.type === 'image_generation_call'
-    ) as { result?: string } | undefined;
-
-    if (!imageOutput?.result) {
+    const imageData = response.data?.[0]?.b64_json;
+    if (!imageData) {
       throw new Error('No image data returned from OpenAI.');
     }
 
-    return imageOutput.result;
+    return imageData;
   } catch (error) {
     if (error instanceof OpenAI.APIError) {
       const requestId = error.request_id ? ` [request_id: ${error.request_id}]` : '';

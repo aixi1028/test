@@ -63,7 +63,29 @@ app.post('/api/image', async (req, res) => {
         : undefined;
 
     console.log('[image] request', { timestamp, requestId, prompt, model: selectedModel });
-    const imageBase64 = await generateImage(prompt, { model: selectedModel });
+    let modelUsed = selectedModel ?? 'gpt-image-1';
+    let imageBase64: string;
+
+    try {
+      imageBase64 = await generateImage(prompt, { model: selectedModel });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      const shouldFallback =
+        !!selectedModel && message.toLowerCase().includes('model') && message.toLowerCase().includes('not found');
+
+      if (!shouldFallback) {
+        throw error;
+      }
+
+      modelUsed = 'gpt-image-1';
+      console.warn('[image] fallback model', {
+        timestamp,
+        requestId,
+        from: selectedModel,
+        to: modelUsed
+      });
+      imageBase64 = await generateImage(prompt, { model: modelUsed });
+    }
     await mkdir(imageDir, { recursive: true });
     await mkdir(imageMetaDir, { recursive: true });
 
@@ -80,6 +102,7 @@ app.post('/api/image', async (req, res) => {
           id: requestId,
           prompt,
           filename,
+          model: modelUsed,
           bytes: imageBuffer.length,
           createdAt: timestamp
         },
@@ -94,7 +117,12 @@ app.post('/api/image', async (req, res) => {
       bytes: imageBuffer.length,
       file: filename
     });
-    res.json({ imageBase64, imageUrl: `/generated/${filename}`, requestId });
+    res.json({
+      imageBase64,
+      imageUrl: `/generated/${filename}`,
+      requestId,
+      modelUsed
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error';
     console.error('[image] error', { timestamp, requestId, error: message });
