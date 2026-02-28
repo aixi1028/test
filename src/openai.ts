@@ -8,6 +8,15 @@ type GenerateOptions = {
   maxRetries?: number;
 };
 
+type GenerateImageOptions = {
+  model?: string;
+  quality?: 'low' | 'medium' | 'high';
+  size?: '1024x1024' | '1024x1536' | '1536x1024';
+  format?: 'png' | 'jpeg' | 'webp';
+  timeoutMs?: number;
+  maxRetries?: number;
+};
+
 export async function generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -28,6 +37,60 @@ export async function generateText(prompt: string, options: GenerateOptions = {}
     });
 
     return response.output_text ?? '';
+  } catch (error) {
+    if (error instanceof OpenAI.APIError) {
+      const requestId = error.request_id ? ` [request_id: ${error.request_id}]` : '';
+      const status = error.status ? ` ${error.status}` : '';
+      throw new Error(
+        `OpenAI API error (${error.name}${status})${requestId}: ${error.message}`,
+        { cause: error }
+      );
+    }
+
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`OpenAI request failed: ${message}`, { cause: error });
+  }
+}
+
+export async function generateImage(
+  prompt: string,
+  options: GenerateImageOptions = {}
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing OPENAI_API_KEY environment variable.');
+  }
+
+  const client = new OpenAI({
+    apiKey,
+    timeout: options.timeoutMs ?? 60_000,
+    maxRetries: options.maxRetries ?? 1
+  });
+
+  try {
+    const response = await client.responses.create({
+      model: options.model ?? 'gpt-5',
+      input: prompt,
+      tools: [
+        {
+          type: 'image_generation',
+          quality: options.quality ?? 'medium',
+          size: options.size ?? '1024x1024',
+          format: options.format ?? 'png'
+        }
+      ],
+      tool_choice: { type: 'image_generation' }
+    });
+
+    const imageOutput = (response.output ?? []).find(
+      (item) => item.type === 'image_generation_call'
+    ) as { result?: string } | undefined;
+
+    if (!imageOutput?.result) {
+      throw new Error('No image data returned from OpenAI.');
+    }
+
+    return imageOutput.result;
   } catch (error) {
     if (error instanceof OpenAI.APIError) {
       const requestId = error.request_id ? ` [request_id: ${error.request_id}]` : '';

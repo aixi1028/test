@@ -2,7 +2,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { generateText } from './openai.js';
+import { generateImage, generateText } from './openai.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3030);
@@ -39,6 +39,29 @@ app.post('/api/chat', async (req, res) => {
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
+});
+
+app.post('/api/image', async (req, res) => {
+  const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+  const requestId = randomUUID();
+  const timestamp = new Date().toISOString();
+
+  if (!prompt) {
+    console.warn('[image] invalid request', { timestamp, requestId });
+    res.status(400).json({ error: 'Prompt is required.', requestId });
+    return;
+  }
+
+  try {
+    console.log('[image] request', { timestamp, requestId, prompt });
+    const imageBase64 = await generateImage(prompt);
+    console.log('[image] response', { timestamp, requestId, bytes: imageBase64.length });
+    res.json({ imageBase64, requestId });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    console.error('[image] error', { timestamp, requestId, error: message });
+    res.status(500).json({ error: message, requestId });
+  }
 });
 
 app.listen(port, () => {

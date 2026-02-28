@@ -77,6 +77,11 @@
         color: #7a879d;
         margin-top: 8px;
       }
+      hr {
+        border: none;
+        border-top: 1px solid #dbe4f2;
+        margin: 32px 0;
+      }
     </style>
   </head>
   <body>
@@ -90,6 +95,16 @@
       <div class="output" id="output">The reply will appear here.</div>
       <div class="status" id="status"></div>
       <div class="status" id="request-id"></div>
+      <hr />
+      <h1>Generate an image</h1>
+      <p>Send a prompt to generate an image with OpenAI.</p>
+      <form id="image-form">
+        <textarea id="image-prompt" name="image-prompt" placeholder="Describe the image..." required></textarea>
+        <button type="submit">Generate</button>
+      </form>
+      <div class="output" id="image-output">The image will appear here.</div>
+      <div class="status" id="image-status"></div>
+      <div class="status" id="image-request-id"></div>
     </main>
 
     <script>
@@ -98,6 +113,11 @@
       const output = document.getElementById('output');
       const status = document.getElementById('status');
       const requestIdEl = document.getElementById('request-id');
+      const imageForm = document.getElementById('image-form');
+      const imagePrompt = document.getElementById('image-prompt');
+      const imageOutput = document.getElementById('image-output');
+      const imageStatus = document.getElementById('image-status');
+      const imageRequestIdEl = document.getElementById('image-request-id');
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -136,6 +156,55 @@
           if (error && typeof error === 'object' && 'requestId' in error) {
             requestIdEl.textContent = `request_id: ${error.requestId}`;
           }
+        }
+      });
+
+      imageForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const prompt = imagePrompt.value.trim();
+        if (!prompt) {
+          return;
+        }
+
+        imageStatus.textContent = 'Sending...';
+        imageRequestIdEl.textContent = '';
+        imageOutput.textContent = 'Waiting for image...';
+
+        try {
+          const response = await fetch('/api/image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ prompt })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data?.error || 'Request failed');
+          }
+
+          if (!data.imageBase64) {
+            throw new Error('Empty image response');
+          }
+
+          const img = document.createElement('img');
+          img.src = `data:image/png;base64,${data.imageBase64}`;
+          img.alt = prompt;
+          img.style.maxWidth = '100%';
+          img.style.borderRadius = '12px';
+          img.style.display = 'block';
+
+          imageOutput.innerHTML = '';
+          imageOutput.appendChild(img);
+          imageStatus.textContent = 'Done.';
+          if (data.requestId) {
+            imageRequestIdEl.textContent = `request_id: ${data.requestId}`;
+          }
+        } catch (error) {
+          imageStatus.textContent = 'Error.';
+          imageOutput.textContent = error instanceof Error ? error.message : 'Unexpected error';
         }
       });
     </script>
