@@ -16,21 +16,28 @@ type GenerateImageOptions = {
   maxRetries?: number;
 };
 
-export async function generateText(prompt: string, options: GenerateOptions = {}): Promise<string> {
+function createClient(options: GenerateOptions | GenerateImageOptions = {}) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('Missing OPENAI_API_KEY environment variable.');
   }
 
-  const client = new OpenAI({
+  return new OpenAI({
     apiKey,
     timeout: options.timeoutMs ?? 30_000,
     maxRetries: options.maxRetries ?? 2
   });
+}
+
+export async function generateOpenaiText(
+  prompt: string,
+  options: GenerateOptions = {}
+): Promise<string> {
+  const client = createClient(options);
 
   try {
     const response = await client.responses.create({
-      model: options.model ?? 'gpt-5.2',
+      model: options.model ?? 'gpt-5-mini',
       input: prompt,
       max_output_tokens: options.maxOutputTokens ?? 256
     });
@@ -51,28 +58,22 @@ export async function generateText(prompt: string, options: GenerateOptions = {}
   }
 }
 
-export async function generateImage(
+export async function generateOpenaiImage(
   prompt: string,
   options: GenerateImageOptions = {}
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('Missing OPENAI_API_KEY environment variable.');
-  }
-
-  const client = new OpenAI({
-    apiKey,
-    timeout: options.timeoutMs ?? 60_000,
-    maxRetries: options.maxRetries ?? 1
-  });
+  const client = createClient(options);
 
   try {
+    const model = options.model ?? 'gpt-image-1';
+    const useDalle = model.startsWith('dall-e');
+
     const response = await client.images.generate({
-      model: options.model ?? 'gpt-image-1',
+      model,
       prompt,
       quality: options.quality ?? 'medium',
       size: options.size ?? '1024x1024',
-      output_format: 'png'
+      ...(useDalle ? { response_format: 'b64_json' } : { output_format: 'png' })
     });
 
     const imageData = response.data?.[0]?.b64_json;

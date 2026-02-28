@@ -95,9 +95,13 @@
   <body>
     <main class="card">
       <h1>Send a message</h1>
-      <p>Type your message and send it to the Node.js backend, which will forward it to OpenAI.</p>
+      <p>Type your message and send it to the Node.js backend, which will forward it to the selected provider.</p>
       <form id="chat-form">
         <textarea id="message" name="message" placeholder="Type something..." required></textarea>
+        <label for="chat-provider">Provider</label>
+        <select id="chat-provider" name="chat-provider"></select>
+        <label for="chat-model">Text model</label>
+        <select id="chat-model" name="chat-model"></select>
         <button type="submit">Send</button>
       </form>
       <div class="output" id="output">The reply will appear here.</div>
@@ -105,15 +109,13 @@
       <div class="status" id="request-id"></div>
       <hr />
       <h1>Generate an image</h1>
-      <p>Send a prompt to generate an image with OpenAI.</p>
+      <p>Send a prompt to generate an image with the selected provider.</p>
       <form id="image-form">
         <textarea id="image-prompt" name="image-prompt" placeholder="Describe the image..." required></textarea>
+        <label for="image-provider">Provider</label>
+        <select id="image-provider" name="image-provider"></select>
         <label for="image-model">Image model</label>
-        <select id="image-model" name="image-model">
-          <option value="gpt-image-1.5">gpt-image-1.5</option>
-          <option value="gpt-image-1">gpt-image-1</option>
-          <option value="gpt-image-1-mini">gpt-image-1-mini</option>
-        </select>
+        <select id="image-model" name="image-model"></select>
         <button type="submit">Generate</button>
       </form>
       <div class="output" id="image-output">The image will appear here.</div>
@@ -128,13 +130,70 @@
       const output = document.getElementById('output');
       const status = document.getElementById('status');
       const requestIdEl = document.getElementById('request-id');
+      const chatProvider = document.getElementById('chat-provider');
+      const chatModel = document.getElementById('chat-model');
       const imageForm = document.getElementById('image-form');
       const imagePrompt = document.getElementById('image-prompt');
       const imageModel = document.getElementById('image-model');
+      const imageProvider = document.getElementById('image-provider');
       const imageOutput = document.getElementById('image-output');
       const imageStatus = document.getElementById('image-status');
       const imageModelUsed = document.getElementById('image-model-used');
       const imageRequestIdEl = document.getElementById('image-request-id');
+      let providers = [];
+
+      function populateProviderSelect(selectEl) {
+        selectEl.innerHTML = '';
+        providers.forEach((provider) => {
+          const option = document.createElement('option');
+          option.value = provider.id;
+          option.textContent = provider.enabled ? provider.label : `${provider.label} (disabled)`;
+          option.disabled = !provider.enabled;
+          selectEl.appendChild(option);
+        });
+      }
+
+      function populateModelSelect(selectEl, providerId, type) {
+        selectEl.innerHTML = '';
+        const provider = providers.find((item) => item.id === providerId);
+        const models = provider?.models?.[type] ?? [];
+        models.forEach((model) => {
+          const option = document.createElement('option');
+          option.value = model;
+          option.textContent = model;
+          selectEl.appendChild(option);
+        });
+        selectEl.disabled = models.length === 0;
+      }
+
+      async function loadProviders() {
+        const response = await fetch('/api/providers');
+        const data = await response.json();
+        providers = data.providers || [];
+        populateProviderSelect(chatProvider);
+        populateProviderSelect(imageProvider);
+        const firstEnabled = providers.find((provider) => provider.enabled)?.id;
+        if (firstEnabled) {
+          chatProvider.value = firstEnabled;
+          imageProvider.value = firstEnabled;
+        }
+        const chatProviderId = chatProvider.value || firstEnabled;
+        const imageProviderId = imageProvider.value || firstEnabled;
+        if (chatProviderId) {
+          populateModelSelect(chatModel, chatProviderId, 'text');
+        }
+        if (imageProviderId) {
+          populateModelSelect(imageModel, imageProviderId, 'image');
+        }
+      }
+
+      chatProvider.addEventListener('change', () => {
+        populateModelSelect(chatModel, chatProvider.value, 'text');
+      });
+
+      imageProvider.addEventListener('change', () => {
+        populateModelSelect(imageModel, imageProvider.value, 'image');
+      });
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -153,7 +212,11 @@
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ message })
+            body: JSON.stringify({
+              message,
+              provider: chatProvider.value,
+              model: chatModel.value
+            })
           });
 
           const data = await response.json();
@@ -195,7 +258,11 @@
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ prompt, model })
+            body: JSON.stringify({
+              prompt,
+              provider: imageProvider.value,
+              model
+            })
           });
 
           const data = await response.json();
@@ -228,6 +295,11 @@
           imageStatus.textContent = 'Error.';
           imageOutput.textContent = error instanceof Error ? error.message : 'Unexpected error';
         }
+      });
+
+      loadProviders().catch((error) => {
+        status.textContent = 'Failed to load providers.';
+        output.textContent = error instanceof Error ? error.message : 'Unexpected error';
       });
     </script>
   </body>
