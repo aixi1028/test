@@ -48,6 +48,14 @@
         font-size: 16px;
         line-height: 1.4;
       }
+      select {
+        width: fit-content;
+        padding: 10px 14px;
+        border: 1px solid #c9d5e8;
+        border-radius: 12px;
+        font-size: 14px;
+        background: #ffffff;
+      }
       button {
         justify-self: start;
         background: #10223a;
@@ -100,6 +108,12 @@
       <p>Send a prompt to generate an image with OpenAI.</p>
       <form id="image-form">
         <textarea id="image-prompt" name="image-prompt" placeholder="Describe the image..." required></textarea>
+        <label for="image-model">Image model</label>
+        <select id="image-model" name="image-model">
+          <option value="gpt-image-1.5">gpt-image-1.5</option>
+          <option value="gpt-image-1">gpt-image-1</option>
+          <option value="gpt-image-1-mini">gpt-image-1-mini</option>
+        </select>
         <button type="submit">Generate</button>
       </form>
       <div class="output" id="image-output">The image will appear here.</div>
@@ -115,6 +129,7 @@
       const requestIdEl = document.getElementById('request-id');
       const imageForm = document.getElementById('image-form');
       const imagePrompt = document.getElementById('image-prompt');
+      const imageModel = document.getElementById('image-model');
       const imageOutput = document.getElementById('image-output');
       const imageStatus = document.getElementById('image-status');
       const imageRequestIdEl = document.getElementById('image-request-id');
@@ -162,6 +177,7 @@
       imageForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const prompt = imagePrompt.value.trim();
+        const model = imageModel.value;
         if (!prompt) {
           return;
         }
@@ -176,7 +192,7 @@
             headers: {
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ prompt })
+            body: JSON.stringify({ prompt, model })
           });
 
           const data = await response.json();
@@ -190,7 +206,7 @@
           }
 
           const img = document.createElement('img');
-          img.src = `data:image/png;base64,${data.imageBase64}`;
+          img.src = data.imageUrl || `data:image/png;base64,${data.imageBase64}`;
           img.alt = prompt;
           img.style.maxWidth = '100%';
           img.style.borderRadius = '12px';
