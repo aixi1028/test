@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 
 const DOUBAO_BASE_URL = process.env.DOUBAO_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3';
 const SEEDREAM_BASE_URL =
-  process.env.SEEDREAM_BASE_URL || 'https://operator.las.cn-beijing.volces.com/api/v1';
+  process.env.SEEDREAM_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3';
 
 function getApiKey(): string {
   const apiKey = process.env.DOUBAO_API_KEY;
