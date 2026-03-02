@@ -11,6 +11,7 @@ import { generateDeepseekText } from './providers/deepseek.js';
 import { generateQwenImage, generateQwenText } from './providers/qwen.js';
 import { generateMoonshotText } from './providers/moonshot.js';
 import { generateBigModelImage, generateBigModelText } from './providers/bigmodel.js';
+import { generateDoubaoImage, generateDoubaoText } from './providers/doubao.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3030);
@@ -29,7 +30,8 @@ type ProviderId =
   | 'deepseek'
   | 'qwen'
   | 'moonshot'
-  | 'bigmodel';
+  | 'bigmodel'
+  | 'doubao';
 type ModelGroup = {
   text: string[];
   image: string[];
@@ -43,7 +45,8 @@ const providerKeyEnv: Record<ProviderId, string> = {
   deepseek: 'DEEPSEEK_API_KEY',
   qwen: 'QWEN_API_KEY',
   moonshot: 'MOONSHOT_API_KEY',
-  bigmodel: 'BIGMODEL_API_KEY'
+  bigmodel: 'BIGMODEL_API_KEY',
+  doubao: 'DOUBAO_API_KEY'
 };
 
 const providers: Record<ProviderId, { label: string; models: ModelGroup; enabled: boolean }> = {
@@ -128,6 +131,18 @@ const providers: Record<ProviderId, { label: string; models: ModelGroup; enabled
     label: 'BigModel (智谱)',
     models: { text: ['glm-4'], image: ['glm-image', 'cogview-3', 'cogview-3-flash'] },
     enabled: true
+  },
+  doubao: {
+    label: 'Doubao (豆包)',
+    models: {
+      text: ['doubao-1-5-pro-32k-250115'],
+      image: [
+        'doubao-seedream-4-5-251128',
+        'doubao-seedream-4-0-250828',
+        'doubao-seedream-3-0-t2i-250415'
+      ]
+    },
+    enabled: true
   }
 };
 
@@ -204,6 +219,8 @@ app.post('/api/chat', async (req, res) => {
       reply = await generateMoonshotText(message, modelToUse);
     } else if (providerId === 'bigmodel') {
       reply = await generateBigModelText(message, modelToUse);
+    } else if (providerId === 'doubao') {
+      reply = await generateDoubaoText(message, modelToUse);
     } else {
       res.status(400).json({ error: 'Provider not implemented yet.', requestId });
       return;
@@ -273,6 +290,8 @@ app.post('/api/image', async (req, res) => {
         imageBase64 = await generateQwenImage(prompt, modelToUse);
       } else if (providerId === 'bigmodel') {
         imageBase64 = await generateBigModelImage(prompt, modelToUse);
+      } else if (providerId === 'doubao') {
+        imageBase64 = await generateDoubaoImage(prompt, modelToUse);
       } else {
         res.status(400).json({ error: 'Provider not implemented yet.', requestId });
         return;
@@ -298,6 +317,8 @@ app.post('/api/image', async (req, res) => {
           ? 'qwen-image-max'
           : providerId === 'bigmodel'
           ? 'glm-image'
+          : providerId === 'doubao'
+          ? 'doubao-seedream-4-5-251128'
           : 'gpt-image-1';
       console.warn('[image] fallback model', {
         timestamp,
@@ -313,6 +334,8 @@ app.post('/api/image', async (req, res) => {
         imageBase64 = await generateQwenImage(prompt, modelUsed);
       } else if (providerId === 'bigmodel') {
         imageBase64 = await generateBigModelImage(prompt, modelUsed);
+      } else if (providerId === 'doubao') {
+        imageBase64 = await generateDoubaoImage(prompt, modelUsed);
       } else {
         imageBase64 = await generateOpenaiImage(prompt, { model: modelUsed });
       }
