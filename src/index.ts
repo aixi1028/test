@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -236,6 +236,43 @@ app.post('/api/chat', async (req, res) => {
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get('/api/images', async (_req, res) => {
+  try {
+    await mkdir(imageMetaDir, { recursive: true });
+    const entries = await readdir(imageMetaDir);
+    const images = await Promise.all(
+      entries
+        .filter((name) => name.endsWith('.json'))
+        .map(async (name) => {
+          const filePath = path.join(imageMetaDir, name);
+          const raw = await readFile(filePath, 'utf8');
+          const data = JSON.parse(raw);
+          if (!data?.filename) {
+            return null;
+          }
+          return {
+            id: data.id ?? name.replace(/\.json$/, ''),
+            prompt: data.prompt ?? '',
+            filename: data.filename,
+            provider: data.provider ?? '',
+            model: data.model ?? '',
+            bytes: data.bytes ?? 0,
+            createdAt: data.createdAt ?? '',
+            imageUrl: `/generated/${data.filename}`
+          };
+        })
+    );
+
+    const cleaned = images.filter((item): item is NonNullable<typeof item> => Boolean(item));
+    cleaned.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    res.json({ images: cleaned });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    console.error('[images] error', { error: message });
+    res.status(500).json({ error: message });
+  }
 });
 
 app.post('/api/image', async (req, res) => {

@@ -86,6 +86,45 @@
         color: #7a879d;
         margin-top: 8px;
       }
+      .gallery-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 24px;
+      }
+      .gallery-header h2 {
+        margin: 0;
+        font-size: 22px;
+      }
+      .refresh-btn {
+        background: #ffffff;
+        border: 1px solid #c9d5e8;
+        color: #10223a;
+      }
+      .gallery {
+        margin-top: 16px;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+      .gallery-card {
+        border: 1px solid #dbe4f2;
+        border-radius: 16px;
+        background: #ffffff;
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .gallery-card img {
+        width: 100%;
+        border-radius: 12px;
+        display: block;
+      }
+      .gallery-meta {
+        font-size: 12px;
+        color: #7a879d;
+      }
       hr {
         border: none;
         border-top: 1px solid #dbe4f2;
@@ -123,6 +162,12 @@
       <div class="status" id="image-status"></div>
       <div class="status" id="image-model-used"></div>
       <div class="status" id="image-request-id"></div>
+      <div class="gallery-header">
+        <h2>Generated images</h2>
+        <button type="button" class="refresh-btn" id="refresh-gallery">Refresh</button>
+      </div>
+      <div class="status" id="gallery-status"></div>
+      <div class="gallery" id="gallery"></div>
     </main>
 
     <script>
@@ -141,6 +186,9 @@
       const imageStatus = document.getElementById('image-status');
       const imageModelUsed = document.getElementById('image-model-used');
       const imageRequestIdEl = document.getElementById('image-request-id');
+      const galleryStatus = document.getElementById('gallery-status');
+      const gallery = document.getElementById('gallery');
+      const refreshGallery = document.getElementById('refresh-gallery');
       let providers = [];
 
       function populateProviderSelect(selectEl) {
@@ -195,6 +243,64 @@
       imageProvider.addEventListener('change', () => {
         populateModelSelect(imageModel, imageProvider.value, 'image');
       });
+
+      function formatTimestamp(value) {
+        if (!value) {
+          return '';
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return value;
+        }
+        return date.toLocaleString();
+      }
+
+      function renderGallery(images) {
+        gallery.innerHTML = '';
+        if (!images.length) {
+          gallery.textContent = 'No images yet.';
+          return;
+        }
+
+        images.forEach((image) => {
+          const card = document.createElement('div');
+          card.className = 'gallery-card';
+
+          const img = document.createElement('img');
+          img.src = image.imageUrl;
+          img.alt = image.prompt || 'Generated image';
+
+          const prompt = document.createElement('div');
+          prompt.textContent = image.prompt || '(no prompt)';
+
+          const meta = document.createElement('div');
+          meta.className = 'gallery-meta';
+          meta.textContent = `${image.provider || 'unknown'} · ${image.model || 'unknown'} · ${formatTimestamp(
+            image.createdAt
+          )}`;
+
+          card.appendChild(img);
+          card.appendChild(prompt);
+          card.appendChild(meta);
+          gallery.appendChild(card);
+        });
+      }
+
+      async function loadGallery() {
+        galleryStatus.textContent = 'Loading images...';
+        try {
+          const response = await fetch('/api/images');
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data?.error || 'Failed to load images');
+          }
+          renderGallery(data.images || []);
+          galleryStatus.textContent = '';
+        } catch (error) {
+          galleryStatus.textContent = 'Failed to load images.';
+          gallery.textContent = error instanceof Error ? error.message : 'Unexpected error';
+        }
+      }
 
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -292,16 +398,23 @@
           if (data.requestId) {
             imageRequestIdEl.textContent = `request_id: ${data.requestId}`;
           }
+          await loadGallery();
         } catch (error) {
           imageStatus.textContent = 'Error.';
           imageOutput.textContent = error instanceof Error ? error.message : 'Unexpected error';
         }
       });
 
+      refreshGallery.addEventListener('click', () => {
+        loadGallery();
+      });
+
       loadProviders().catch((error) => {
         status.textContent = 'Failed to load providers.';
         output.textContent = error instanceof Error ? error.message : 'Unexpected error';
       });
+
+      loadGallery();
     </script>
   </body>
 </html>

@@ -13,6 +13,7 @@ Set the following variables in your environment (or via a `.env` file) before ru
 - `MOONSHOT_API_KEY`
 - `BIGMODEL_API_KEY`
 - `DOUBAO_API_KEY`
+- `SEEDREAM_API_KEY` (optional; defaults to `DOUBAO_API_KEY`)
 
 Optional overrides:
 
@@ -20,6 +21,10 @@ Optional overrides:
 - `QWEN_IMAGE_BASE_URL`
 - `DOUBAO_BASE_URL`
 - `SEEDREAM_BASE_URL`
+
+Notes:
+- `DOUBAO_API_KEY` should be an Ark API Key for Doubao text models.
+- `SEEDREAM_API_KEY` can be a LAS/Seedream API Key if image requests return 401 with the Ark key.
 
 ## API Usage
 
